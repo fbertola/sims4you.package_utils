@@ -5,4 +5,16 @@
     <TargetFramework>netcoreapp3.1</TargetFramework>
   </PropertyGroup>
 
+  <ItemGroup>
+    <Reference Include="s4pi.ImageResource">
+      <HintPath>..\..\Sims4Tools\bin\Debug\s4pi.ImageResource.dll</HintPath>
+    </Reference>
+    <Reference Include="s4pi.Interfaces">
+      <HintPath>..\..\Sims4Tools\bin\Debug\s4pi.Interfaces.dll</HintPath>
+    </Reference>
+    <Reference Include="s4pi.Package">
+      <HintPath>..\..\Sims4Tools\bin\Debug\s4pi.Package.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
 </Project>

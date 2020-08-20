@@ -1,17 +1,25 @@
-﻿using System;
+﻿using s4pi.Interfaces;
+using s4pi.Package;
+using System;
 using System.Collections.Generic;
 using System.IO;
+using TS4SimRipper;
 
 namespace sims4you.package_utils
 {
     class Program
     {
+        readonly string TS4FilesPath = "";
         Package[] gamePackages = new Package[0];
         string[] gamePackageNames = new string[0];
 
+        Program(string TS4FilesPath)
+        {
+            this.TS4FilesPath = TS4FilesPath;
+        }
+
         private bool SetupGamePacks()
         {
-            string TS4FilesPath = Properties.Settings.Default.TS4Path;
             List<Package> gamePacks = new List<Package>();
             List<string> paths = new List<string>();
             try
@@ -56,7 +64,7 @@ namespace sims4you.package_utils
             {
                 for (int i = 0; i < paths.Count; i++)
                 {
-                    Package p = OpenPackage(paths[i], false);
+                    Package p = (Package)Package.OpenPackage(0, paths[i], false);
                     if (p == null)
                     {
                         Console.Error.WriteLine("Can't read game packages!");
@@ -83,38 +91,50 @@ namespace sims4you.package_utils
             return true;
         }
 
-        private Sculpt FetchGameSculpt(TGI tgi, ref string errorMsg)
+        private List<Sculpt> FetchGameSculpts()
         {
-            if (tgi.Instance == 0ul) return null;
-            Predicate<IResourceIndexEntry> pred = r => r.ResourceType == tgi.Type & r.Instance == tgi.Instance;
+            List<Sculpt> scupts = new List<Sculpt>();
+            Predicate<IResourceIndexEntry> pred = r => r.ResourceType == (uint)ResourceTypes.Sculpt;
+            
             for (int i = 0; i < gamePackages.Length; i++)
             {
                 Package p = gamePackages[i];
-                IResourceIndexEntry irie = p.FindAll(pred);
-                if (irie != null)
+                List<IResourceIndexEntry> iries = p.FindAll(pred);
+                if (iries != null)
                 {
-                    using (BinaryReader br = new BinaryReader(p.GetResource(irie)))
-                    {
+                    foreach (IResourceIndexEntry irie in iries) {
+                        using BinaryReader br = new BinaryReader(p.GetResource(irie));
                         try
                         {
                             Sculpt sculpt = new Sculpt(br);
-                            return sculpt;
+                            scupts.Add(sculpt);
                         }
-                        catch
+                        catch (Exception e)
                         {
-                            errorMsg += "Can't read Sculpt " + tgi.ToString() + ", Package: " + gamePackageNames[i] + Environment.NewLine;
-                            return null;
+                            Console.Error.WriteLine("!!!" + Environment.NewLine + e.Message + Environment.NewLine + e.StackTrace);
                         }
                     }
                 }
             }
-            errorMsg += "Can't find Sculpt " + tgi.ToString() + Environment.NewLine;
-            return null;
+
+            return scupts;
         }
 
         static void Main(string[] args)
         {
-            Console.WriteLine("Hello World!");
+            Console.WriteLine("Fetching game Sculpts...");
+            Program program = new Program("D:\\Games\\The Sims 4\\Data");
+            bool wasAbleToReadGamePacks = program.SetupGamePacks();
+            
+            if (wasAbleToReadGamePacks)
+            {
+                List<Sculpt> sculpts = program.FetchGameSculpts();
+                Console.WriteLine("Fetched " + sculpts.ToArray().Length + " sculpts");
+                foreach (Sculpt s in sculpts)
+                {
+                    Console.WriteLine(s.region.ToString());
+                }
+            }
         }
     }
 }
