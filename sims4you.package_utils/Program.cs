@@ -94,30 +94,61 @@ namespace sims4you.package_utils
         private List<Sculpt> FetchGameSculpts()
         {
             List<Sculpt> scupts = new List<Sculpt>();
-            Predicate<IResourceIndexEntry> pred = r => r.ResourceType == (uint)ResourceTypes.Sculpt;
-            
+            static bool pred(IResourceIndexEntry r) => r.ResourceType == (uint)ResourceTypes.Sculpt;
+
             for (int i = 0; i < gamePackages.Length; i++)
             {
                 Package p = gamePackages[i];
                 List<IResourceIndexEntry> iries = p.FindAll(pred);
                 if (iries != null)
                 {
-                    foreach (IResourceIndexEntry irie in iries) {
+                    foreach (IResourceIndexEntry irie in iries)
+                    {
                         using BinaryReader br = new BinaryReader(p.GetResource(irie));
                         try
                         {
                             Sculpt sculpt = new Sculpt(br);
                             scupts.Add(sculpt);
                         }
-                        catch (Exception e)
+                        catch
                         {
-                            Console.Error.WriteLine("!!!" + Environment.NewLine + e.Message + Environment.NewLine + e.StackTrace);
+                            //Console.Error.WriteLine("!!!" + Environment.NewLine + e.Message + Environment.NewLine + e.StackTrace);
                         }
                     }
                 }
             }
 
+
             return scupts;
+        }
+
+        private List<CASP> FetchGameCASP()
+        {
+            List<CASP> casps = new List<CASP>();
+            static bool pred(IResourceIndexEntry r) => r.ResourceType == (uint)ResourceTypes.CASP;
+            for (int i = 0; i < gamePackages.Length; i++)
+            {
+                Package p = gamePackages[i];
+                List<IResourceIndexEntry> iries = p.FindAll(pred);
+                if (iries != null)
+                {
+                    foreach (IResourceIndexEntry irie in iries)
+                    {
+                        using BinaryReader br = new BinaryReader(p.GetResource(irie));
+                        try
+                        {
+                            CASP casp = new CASP(br);
+                            casps.Add(casp);
+                        }
+                        catch
+                        {
+
+                        }
+                    }
+                }
+            }
+
+            return casps;
         }
 
         static void Main(string[] args)
@@ -125,16 +156,23 @@ namespace sims4you.package_utils
             Console.WriteLine("Fetching game Sculpts...");
             Program program = new Program("D:\\Games\\The Sims 4\\Data");
             bool wasAbleToReadGamePacks = program.SetupGamePacks();
-            
+
             if (wasAbleToReadGamePacks)
             {
                 List<Sculpt> sculpts = program.FetchGameSculpts();
-                Console.WriteLine("Fetched " + sculpts.ToArray().Length + " sculpts");
-                foreach (Sculpt s in sculpts)
+                List<CASP> casps = program.FetchGameCASP();
+
+                foreach (CASP casp in casps)
                 {
-                    Console.WriteLine(s.region.ToString());
+                    Console.WriteLine(casp.partname);
                 }
             }
+
+            //foreach (DictionaryEntry de in hashtable)
+            //{
+            //    Console.WriteLine("\"" + de.Key + "\": \"" + de.Value + "\",");
+            //}
+            //Console.WriteLine("Fetched " + hashtable.Count + " sculpts");
         }
     }
 }
