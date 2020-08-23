@@ -35,7 +35,7 @@ namespace TS4SimRipper
         Unisex = 0x00003000
     }
 
- 
+
     public enum SimRegion : uint
     {
         EYES = 0,

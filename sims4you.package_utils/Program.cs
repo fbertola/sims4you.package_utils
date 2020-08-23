@@ -1,6 +1,7 @@
 ﻿using s4pi.Interfaces;
 using s4pi.Package;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using TS4SimRipper;
@@ -91,9 +92,9 @@ namespace sims4you.package_utils
             return true;
         }
 
-        private List<Sculpt> FetchGameSculpts()
+        private Hashtable FetchGameSculpts()
         {
-            List<Sculpt> scupts = new List<Sculpt>();
+            Hashtable sculpts = new Hashtable();
             static bool pred(IResourceIndexEntry r) => r.ResourceType == (uint)ResourceTypes.Sculpt;
 
             for (int i = 0; i < gamePackages.Length; i++)
@@ -108,23 +109,26 @@ namespace sims4you.package_utils
                         try
                         {
                             Sculpt sculpt = new Sculpt(br);
-                            scupts.Add(sculpt);
+                            if (!sculpts.ContainsKey(irie.Instance))
+                            {
+                                sculpts.Add(irie.Instance, sculpt.region.ToString());
+                            }
                         }
-                        catch
+                        catch (Exception e)
                         {
-                            //Console.Error.WriteLine("!!!" + Environment.NewLine + e.Message + Environment.NewLine + e.StackTrace);
+                            Console.Error.WriteLine("[ERROR]" + Environment.NewLine + e.Message + Environment.NewLine + e.StackTrace);
                         }
                     }
                 }
             }
 
 
-            return scupts;
+            return sculpts;
         }
 
-        private List<CASP> FetchGameCASP()
+        private Hashtable FetchGameCASP()
         {
-            List<CASP> casps = new List<CASP>();
+            Hashtable casps = new Hashtable();
             static bool pred(IResourceIndexEntry r) => r.ResourceType == (uint)ResourceTypes.CASP;
             for (int i = 0; i < gamePackages.Length; i++)
             {
@@ -138,17 +142,41 @@ namespace sims4you.package_utils
                         try
                         {
                             CASP casp = new CASP(br);
-                            casps.Add(casp);
+                            if (!casps.ContainsKey(irie.Instance) && IsFacialCASP(casp))
+                            {
+                                casps.Add(irie.Instance, casp.partname);
+                            }
                         }
-                        catch
+                        catch (Exception e)
                         {
-
+                            Console.Error.WriteLine("[ERROR]" + Environment.NewLine + e.Message + Environment.NewLine + e.StackTrace);
                         }
                     }
                 }
             }
 
             return casps;
+        }
+
+        private static bool IsFacialCASP(CASP casp)
+        {
+            return (
+                casp.bodyType == (uint)BodyType.Hair ||
+                casp.bodyType == (uint)BodyType.Head ||
+                casp.bodyType == (uint)BodyType.Face ||
+                casp.bodyType == (uint)BodyType.FacialHair ||
+                casp.bodyType == (uint)BodyType.Lipstick ||
+                casp.bodyType == (uint)BodyType.Eyeshadow ||
+                casp.bodyType == (uint)BodyType.Eyeliner ||
+                casp.bodyType == (uint)BodyType.Blush ||
+                casp.bodyType == (uint)BodyType.Eyebrows ||
+                casp.bodyType == (uint)BodyType.Eyecolor ||
+                casp.bodyType == (uint)BodyType.Mascara ||
+                casp.bodyType == (uint)BodyType.ForeheadCrease ||
+                casp.bodyType == (uint)BodyType.Freckles ||
+                casp.bodyType == (uint)BodyType.MouthCrease ||
+                casp.bodyType == (uint)BodyType.SkinDetailAcne
+                );
         }
 
         static void Main(string[] args)
@@ -159,20 +187,21 @@ namespace sims4you.package_utils
 
             if (wasAbleToReadGamePacks)
             {
-                List<Sculpt> sculpts = program.FetchGameSculpts();
-                List<CASP> casps = program.FetchGameCASP();
+                Hashtable sculpts = program.FetchGameSculpts();
+                Hashtable casps = program.FetchGameCASP();
 
-                foreach (CASP casp in casps)
+                Console.WriteLine("---------SCULPTS---------");
+                foreach (DictionaryEntry de in sculpts)
                 {
-                    Console.WriteLine(casp.partname);
+                    Console.WriteLine("\"" + de.Key + "\": \"" + de.Value + "\",");
+                }
+
+                Console.WriteLine("---------CASP---------");
+                foreach (DictionaryEntry de in casps)
+                {
+                    Console.WriteLine("\"" + de.Key + "\": \"" + de.Value + "\",");
                 }
             }
-
-            //foreach (DictionaryEntry de in hashtable)
-            //{
-            //    Console.WriteLine("\"" + de.Key + "\": \"" + de.Value + "\",");
-            //}
-            //Console.WriteLine("Fetched " + hashtable.Count + " sculpts");
         }
     }
 }
