@@ -28,6 +28,7 @@ namespace TS4SimRipper
         public byte textureSpace;
         public uint bodyType;
         public uint bodySubType;
+        AgeGender ageGender;
 
 
         public CASP(BinaryReader br)
@@ -78,6 +79,16 @@ namespace TS4SimRipper
             textureSpace = br.ReadByte();
             bodyType = br.ReadUInt32();
             bodySubType = br.ReadUInt32();
+            ageGender = (AgeGender)br.ReadUInt32();
+        }
+
+        public AgeGender age
+        {
+            get { return (AgeGender)((uint)this.ageGender & 0xFF); }
+        }
+        public AgeGender gender
+        {
+            get { return (AgeGender)((uint)this.ageGender & 0xFF00); }
         }
     }
 }

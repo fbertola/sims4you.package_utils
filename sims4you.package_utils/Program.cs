@@ -5,6 +5,8 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using TS4SimRipper;
+using System.Text.Json;
+using System.Linq;
 
 namespace sims4you.package_utils
 {
@@ -111,7 +113,7 @@ namespace sims4you.package_utils
                             Sculpt sculpt = new Sculpt(br);
                             if (!sculpts.ContainsKey(irie.Instance))
                             {
-                                sculpts.Add(irie.Instance, sculpt.region.ToString());
+                                sculpts.Add(irie.Instance, sculpt.region.ToString().ToLower());
                             }
                         }
                         catch (Exception e)
@@ -144,7 +146,7 @@ namespace sims4you.package_utils
                             CASP casp = new CASP(br);
                             if (!casps.ContainsKey(irie.Instance) && IsFacialCASP(casp))
                             {
-                                casps.Add(irie.Instance, casp.partname);
+                                casps.Add(irie.Instance, casp);
                             }
                         }
                         catch (Exception e)
@@ -197,9 +199,16 @@ namespace sims4you.package_utils
                 }
 
                 Console.WriteLine("---------CASP---------");
+                string docPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+                using StreamWriter outputFile = new StreamWriter(Path.Combine(docPath, "WriteLines.txt"));
                 foreach (DictionaryEntry de in casps)
                 {
-                    Console.WriteLine("\"" + de.Key + "\": \"" + de.Value + "\",");
+                    CASP casp = (CASP)de.Value;
+                    string bodyType = ((BodyType)casp.bodyType).ToString().ToLower();
+                    string ages = JsonSerializer.Serialize(casp.age.ToString().Split(", "));
+                    string genders = JsonSerializer.Serialize(casp.gender.ToString().Split(", "));
+
+                    outputFile.WriteLine("\"" + de.Key + "\": {\"name\": \"" + casp.partname + "\", \"body_type\": \"" + bodyType + "\", \"age\": " + ages + ", \"gender\": " + genders + "},");
                 }
             }
         }
