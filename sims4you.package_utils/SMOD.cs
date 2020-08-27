@@ -17,23 +17,28 @@
 
 using System.IO;
 
+
 namespace TS4SimRipper
 {
-    public class Sculpt
+    public class SMOD
     {
         public uint contextVersion;
         public TGI[] publicKey;
         public TGI[] externalKey;
         public TGI[] BGEOKey;
         public ObjectData[] objectKey;
-
         public uint version;
         public AgeGender ageGender;
         public SimRegion region;
         public SimSubRegion subRegion;
         public BgeoLinkTag linkTag;
+        public TGI bonePoseKey;
+        public TGI deformerMapShapeKey;
+        public TGI deformerMapNormalKey;
+        public BoneEntry[] boneEntryList;
 
-        public Sculpt(BinaryReader br)
+
+        public SMOD(BinaryReader br)
         {
             this.contextVersion = br.ReadUInt32();
             uint publicKeyCount = br.ReadUInt32();
@@ -51,7 +56,17 @@ namespace TS4SimRipper
             this.version = br.ReadUInt32();
             this.ageGender = (AgeGender)br.ReadUInt32();
             this.region = (SimRegion)br.ReadUInt32();
-            this.subRegion = (SimSubRegion)br.ReadUInt32();
+            if (this.version >= 144) this.subRegion = (SimSubRegion)br.ReadUInt32();
+            this.linkTag = (BgeoLinkTag)br.ReadUInt32();
+            this.bonePoseKey = new TGI(br, TGI.TGIsequence.ITG);
+            this.deformerMapShapeKey = new TGI(br, TGI.TGIsequence.ITG);
+            this.deformerMapNormalKey = new TGI(br, TGI.TGIsequence.ITG);
+            uint count = br.ReadUInt32();
+            this.boneEntryList = new BoneEntry[count];
+            for (int i = 0; i < count; i++)
+            {
+                this.boneEntryList[i] = new BoneEntry(br);
+            }
         }
 
         public class ObjectData
@@ -65,15 +80,43 @@ namespace TS4SimRipper
                 this.length = br.ReadUInt32();
             }
 
+            internal ObjectData(uint position, uint length)
+            {
+                this.position = position;
+                this.length = length;
+            }
+
+            internal void Write(BinaryWriter bw)
+            {
+                bw.Write(this.position);
+                bw.Write(this.length);
+            }
+
         }
 
-        public AgeGender age
+        public class BoneEntry
         {
-            get { return (AgeGender)((uint)this.ageGender & 0xFF); }
-        }
-        public AgeGender gender
-        {
-            get { return (AgeGender)((uint)this.ageGender & 0xFF00); }
+            internal uint boneHash;
+            internal float multiplier;
+
+            internal BoneEntry(BinaryReader br)
+            {
+                this.boneHash = br.ReadUInt32();
+                this.multiplier = br.ReadSingle();
+            }
+
+            internal BoneEntry(uint hash, float multiplier)
+            {
+                this.boneHash = hash;
+                this.multiplier = multiplier;
+            }
+
+            internal void Write(BinaryWriter bw)
+            {
+                bw.Write(this.boneHash);
+                bw.Write(this.multiplier);
+            }
+
         }
     }
 }

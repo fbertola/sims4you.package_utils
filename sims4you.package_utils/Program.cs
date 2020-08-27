@@ -6,7 +6,7 @@ using System.Collections.Generic;
 using System.IO;
 using TS4SimRipper;
 using System.Text.Json;
-using System.Linq;
+
 
 namespace sims4you.package_utils
 {
@@ -113,7 +113,7 @@ namespace sims4you.package_utils
                             Sculpt sculpt = new Sculpt(br);
                             if (!sculpts.ContainsKey(irie.Instance))
                             {
-                                sculpts.Add(irie.Instance, sculpt.region.ToString().ToLower());
+                                sculpts.Add(irie.Instance, sculpt);
                             }
                         }
                         catch (Exception e)
@@ -160,6 +160,38 @@ namespace sims4you.package_utils
             return casps;
         }
 
+        private Hashtable FetchGameSimModifiers()
+        {
+            Hashtable smods = new Hashtable();
+            static bool pred(IResourceIndexEntry r) => r.ResourceType == (uint)ResourceTypes.SimModifier;
+            for (int i = 0; i < gamePackages.Length; i++)
+            {
+                Package p = gamePackages[i];
+                List<IResourceIndexEntry> iries = p.FindAll(pred);
+                if (iries != null)
+                {
+                    foreach (IResourceIndexEntry irie in iries)
+                    {
+                        using BinaryReader br = new BinaryReader(p.GetResource(irie));
+                        try
+                        {
+                            SMOD smod = new SMOD(br);
+ //                           if (!casps.ContainsKey(irie.Instance) && IsFacialCASP(casp))
+ //                           {
+                                smods.Add(irie.Instance, smod);
+ //                           }
+                        }
+                        catch (Exception e)
+                        {
+                            Console.Error.WriteLine("[ERROR]" + Environment.NewLine + e.Message + Environment.NewLine + e.StackTrace);
+                        }
+                    }
+                }
+            }
+
+            return smods;
+        }
+
         private static bool IsFacialCASP(CASP casp)
         {
             return (
@@ -183,24 +215,42 @@ namespace sims4you.package_utils
 
         static void Main(string[] args)
         {
-            Console.WriteLine("Fetching game Sculpts...");
+            Console.WriteLine("Fetching game Sculpts and CASPs...");
             Program program = new Program("D:\\Games\\The Sims 4\\Data");
             bool wasAbleToReadGamePacks = program.SetupGamePacks();
 
             if (wasAbleToReadGamePacks)
             {
+                Hashtable modifiers = program.FetchGameSimModifiers();
                 Hashtable sculpts = program.FetchGameSculpts();
                 Hashtable casps = program.FetchGameCASP();
 
+                Console.WriteLine("---------MODIFIERS---------");
+                foreach (DictionaryEntry de in modifiers)
+                {
+                    // TODO: link modifier's BGEO to sculpt's BGEO
+                    if (((SMOD)de.Value).BGEOKey.Length > 0)
+                    {
+                        Console.WriteLine(de.Key + " " + ((SMOD)de.Value).BGEOKey[0].Instance);
+                    }
+                }
+
                 Console.WriteLine("---------SCULPTS---------");
+                string sculptOutputPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+                using StreamWriter sculptOutputFile = new StreamWriter(Path.Combine(sculptOutputPath, "sculpts.txt"));
                 foreach (DictionaryEntry de in sculpts)
                 {
-                    Console.WriteLine("\"" + de.Key + "\": \"" + de.Value + "\",");
+                    Sculpt sculpt = (Sculpt)de.Value;
+                    string region = sculpt.region.ToString().ToLower();
+                    string ages = JsonSerializer.Serialize(sculpt.age.ToString().Split(", "));
+                    string genders = JsonSerializer.Serialize(sculpt.gender.ToString().Split(", "));
+                    var bgeoKeys = JsonSerializer.Serialize(sculpt.BGEOKey);
+                    sculptOutputFile.WriteLine("\"" + de.Key + "\": {\"region\": \"" + region + "\", \"age\": " + ages + ", \"gender\": " + genders + ", \"bgeo\": " + bgeoKeys + "},");
                 }
 
                 Console.WriteLine("---------CASP---------");
-                string docPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-                using StreamWriter outputFile = new StreamWriter(Path.Combine(docPath, "WriteLines.txt"));
+                string caspsOutputPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+                using StreamWriter caspsOutputFile = new StreamWriter(Path.Combine(caspsOutputPath, "casps.txt"));
                 foreach (DictionaryEntry de in casps)
                 {
                     CASP casp = (CASP)de.Value;
@@ -208,8 +258,12 @@ namespace sims4you.package_utils
                     string ages = JsonSerializer.Serialize(casp.age.ToString().Split(", "));
                     string genders = JsonSerializer.Serialize(casp.gender.ToString().Split(", "));
 
-                    outputFile.WriteLine("\"" + de.Key + "\": {\"name\": \"" + casp.partname + "\", \"body_type\": \"" + bodyType + "\", \"age\": " + ages + ", \"gender\": " + genders + "},");
+                    caspsOutputFile.WriteLine("\"" + de.Key + "\": {\"name\": \"" + casp.partname + "\", \"body_type\": \"" + bodyType + "\", \"age\": " + ages + ", \"gender\": " + genders + "},");
                 }
+            } 
+            else
+            {
+                Console.Error.WriteLine("Wasn't able to read Game Packs!");
             }
         }
     }
