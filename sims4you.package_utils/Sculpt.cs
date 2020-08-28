@@ -33,6 +33,8 @@ namespace TS4SimRipper
         public SimSubRegion subRegion;
         public BgeoLinkTag linkTag;
 
+        public string sculptName;
+
         public Sculpt(BinaryReader br)
         {
             this.contextVersion = br.ReadUInt32();

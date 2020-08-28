@@ -6,7 +6,10 @@ using System.Collections.Generic;
 using System.IO;
 using TS4SimRipper;
 using System.Text.Json;
-
+using System.Xml;
+using MorphTool;
+using System.Reflection;
+using System.Text;
 
 namespace sims4you.package_utils
 {
@@ -94,15 +97,56 @@ namespace sims4you.package_utils
             return true;
         }
 
-        private Hashtable FetchGameSculpts()
+        private Dictionary<ulong, string> ParseTextResourcesList(string filename)
         {
-            Hashtable sculpts = new Hashtable();
+            string executingPath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+            string resourcePath = Path.Combine(executingPath, filename);
+            if (!File.Exists(resourcePath))
+            {
+                Console.Error.WriteLine(string.Format("'{0}' not found in CAS Tools directory '{1}'; TGI and resource name list cannot be loaded.", filename, executingPath));
+                return null;
+            }
+
+            StreamReader file = new System.IO.StreamReader(resourcePath);
+            Dictionary<ulong, string> dictOut = new Dictionary<ulong, string>();
+            string line;
+            while ((line = file.ReadLine()) != null)
+            {
+                string[] s = line.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                dictOut.Add((new TGI(s[0])).Instance, s[1]);
+            }
+            file.Close();
+
+            return dictOut;
+        }
+
+        private Dictionary<ulong, Sculpt> FetchGameSculpts()
+        {
+            Dictionary<ulong, Sculpt> sculpts = new Dictionary<ulong, Sculpt>();
             static bool pred(IResourceIndexEntry r) => r.ResourceType == (uint)ResourceTypes.Sculpt;
+            static bool predNMap(IResourceIndexEntry r) => r.ResourceType == (uint)ResourceTypes.NameMap;
+            NameMap nameMap = null;
+
+
+            for (int i = 0; i < gamePackages.Length; i++)
+            {
+                Package p = gamePackages[i];
+                IResourceIndexEntry irieNMap = p.Find(pred);
+
+                if (irieNMap != null)
+                {
+                    using (BinaryReader br = new BinaryReader(p.GetResource(irieNMap), Encoding.ASCII))
+                    {
+                        nameMap = new NameMap(br);
+                    }
+                }
+            }
 
             for (int i = 0; i < gamePackages.Length; i++)
             {
                 Package p = gamePackages[i];
                 List<IResourceIndexEntry> iries = p.FindAll(pred);
+
                 if (iries != null)
                 {
                     foreach (IResourceIndexEntry irie in iries)
@@ -111,6 +155,12 @@ namespace sims4you.package_utils
                         try
                         {
                             Sculpt sculpt = new Sculpt(br);
+
+                            if (nameMap != null)
+                            {
+                                sculpt.sculptName = nameMap.getName(irie.Instance);
+                            }
+
                             if (!sculpts.ContainsKey(irie.Instance))
                             {
                                 sculpts.Add(irie.Instance, sculpt);
@@ -128,9 +178,9 @@ namespace sims4you.package_utils
             return sculpts;
         }
 
-        private Hashtable FetchGameCASP()
+        private Dictionary<ulong, CASP> FetchGameCASP()
         {
-            Hashtable casps = new Hashtable();
+            Dictionary<ulong, CASP> casps = new Dictionary<ulong, CASP>();
             static bool pred(IResourceIndexEntry r) => r.ResourceType == (uint)ResourceTypes.CASP;
             for (int i = 0; i < gamePackages.Length; i++)
             {
@@ -160,9 +210,10 @@ namespace sims4you.package_utils
             return casps;
         }
 
-        private Hashtable FetchGameSimModifiers()
+        private Dictionary<ulong, SMOD> FetchGameSimModifiers()
         {
-            Hashtable smods = new Hashtable();
+            Dictionary<ulong, string> smodNames = ParseTextResourcesList("ModifierList.txt");
+            Dictionary<ulong, SMOD> smods = new Dictionary<ulong, SMOD>();
             static bool pred(IResourceIndexEntry r) => r.ResourceType == (uint)ResourceTypes.SimModifier;
             for (int i = 0; i < gamePackages.Length; i++)
             {
@@ -176,10 +227,9 @@ namespace sims4you.package_utils
                         try
                         {
                             SMOD smod = new SMOD(br);
- //                           if (!casps.ContainsKey(irie.Instance) && IsFacialCASP(casp))
- //                           {
-                                smods.Add(irie.Instance, smod);
- //                           }
+                            smodNames.TryGetValue(irie.Instance, out smod.smodName);
+
+                            if (smod.smodName != null) smods.Add(irie.Instance, smod);
                         }
                         catch (Exception e)
                         {
@@ -221,39 +271,39 @@ namespace sims4you.package_utils
 
             if (wasAbleToReadGamePacks)
             {
-                Hashtable modifiers = program.FetchGameSimModifiers();
-                Hashtable sculpts = program.FetchGameSculpts();
-                Hashtable casps = program.FetchGameCASP();
+                Dictionary<ulong, SMOD> modifiers = program.FetchGameSimModifiers();
+                Dictionary<ulong, Sculpt> sculpts = program.FetchGameSculpts();
+                Dictionary<ulong, CASP> casps = program.FetchGameCASP();
 
                 Console.WriteLine("---------MODIFIERS---------");
-                foreach (DictionaryEntry de in modifiers)
+                foreach (KeyValuePair<ulong, SMOD> de in modifiers)
                 {
-                    // TODO: link modifier's BGEO to sculpt's BGEO
-                    if (((SMOD)de.Value).BGEOKey.Length > 0)
-                    {
-                        Console.WriteLine(de.Key + " " + ((SMOD)de.Value).BGEOKey[0].Instance);
-                    }
+                    SMOD smod = de.Value;
+                    string region = smod.region.ToString().ToLower();
+                    string ages = JsonSerializer.Serialize(smod.age.ToString().Split(", "));
+                    string genders = JsonSerializer.Serialize(smod.gender.ToString().Split(", "));
+                    Console.WriteLine("\"" + de.Key + "\": {\"name\": \"" + smod.smodName + "\", \"region\": \"" + region + "\", \"age\": " + ages + ", \"gender\": " + genders + "},");
                 }
 
                 Console.WriteLine("---------SCULPTS---------");
                 string sculptOutputPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
                 using StreamWriter sculptOutputFile = new StreamWriter(Path.Combine(sculptOutputPath, "sculpts.txt"));
-                foreach (DictionaryEntry de in sculpts)
+                foreach (KeyValuePair<ulong, Sculpt> de in sculpts)
                 {
-                    Sculpt sculpt = (Sculpt)de.Value;
+                    Sculpt sculpt = de.Value;
                     string region = sculpt.region.ToString().ToLower();
                     string ages = JsonSerializer.Serialize(sculpt.age.ToString().Split(", "));
                     string genders = JsonSerializer.Serialize(sculpt.gender.ToString().Split(", "));
                     var bgeoKeys = JsonSerializer.Serialize(sculpt.BGEOKey);
-                    sculptOutputFile.WriteLine("\"" + de.Key + "\": {\"region\": \"" + region + "\", \"age\": " + ages + ", \"gender\": " + genders + ", \"bgeo\": " + bgeoKeys + "},");
+                    sculptOutputFile.WriteLine("\"" + de.Key + "\": {\"name\": \"" + sculpt.sculptName + "\", \"region\": \"" + region + "\", \"age\": " + ages + ", \"gender\": " + genders + ", \"bgeo\": " + bgeoKeys + "},");
                 }
 
                 Console.WriteLine("---------CASP---------");
                 string caspsOutputPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
                 using StreamWriter caspsOutputFile = new StreamWriter(Path.Combine(caspsOutputPath, "casps.txt"));
-                foreach (DictionaryEntry de in casps)
+                foreach (KeyValuePair<ulong, CASP> de in casps)
                 {
-                    CASP casp = (CASP)de.Value;
+                    CASP casp = de.Value;
                     string bodyType = ((BodyType)casp.bodyType).ToString().ToLower();
                     string ages = JsonSerializer.Serialize(casp.age.ToString().Split(", "));
                     string genders = JsonSerializer.Serialize(casp.gender.ToString().Split(", "));

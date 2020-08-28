@@ -37,6 +37,7 @@ namespace TS4SimRipper
         public TGI deformerMapNormalKey;
         public BoneEntry[] boneEntryList;
 
+        public string smodName;
 
         public SMOD(BinaryReader br)
         {
@@ -67,6 +68,15 @@ namespace TS4SimRipper
             {
                 this.boneEntryList[i] = new BoneEntry(br);
             }
+        }
+
+        public AgeGender age
+        {
+            get { return (AgeGender)((uint)this.ageGender & 0xFF); }
+        }
+        public AgeGender gender
+        {
+            get { return (AgeGender)((uint)this.ageGender & 0xFF00); }
         }
 
         public class ObjectData
