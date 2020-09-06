@@ -229,7 +229,10 @@ namespace sims4you.package_utils
                             SMOD smod = new SMOD(br);
                             smodNames.TryGetValue(irie.Instance, out smod.smodName);
 
-                            if (smod.smodName != null) smods.Add(irie.Instance, smod);
+                            if (smod.smodName != null && IsFacialModifier(smod))
+                            {
+                                smods.Add(irie.Instance, smod);
+                            }
                         }
                         catch (Exception e)
                         {
@@ -260,6 +263,23 @@ namespace sims4you.package_utils
                 casp.bodyType == (uint)BodyType.Freckles ||
                 casp.bodyType == (uint)BodyType.MouthCrease ||
                 casp.bodyType == (uint)BodyType.SkinDetailAcne
+                );
+        }
+
+        private static bool IsFacialModifier(SMOD smod)
+        {
+            return (
+                smod.region == SimRegion.EYES ||
+                smod.region == SimRegion.NOSE ||
+                smod.region == SimRegion.MOUTH ||
+                smod.region == SimRegion.CHEEKS ||
+                smod.region == SimRegion.CHIN ||
+                smod.region == SimRegion.JAW ||
+                smod.region == SimRegion.FOREHEAD ||
+                smod.region == SimRegion.BROWS ||
+                smod.region == SimRegion.EARS ||
+                smod.region == SimRegion.HEAD ||
+                smod.region == SimRegion.FULLFACE
                 );
         }
 
